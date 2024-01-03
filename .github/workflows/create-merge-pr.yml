@@ -32,6 +32,8 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           owner_and_repo: ${{ github.repository }}
+          branch_prefix: ${{ inputs.branch_prefix }}
+          merge_prefix: ${{ inputs.merge_prefix }}
         run: |
           jq_expr='.[] | .ref | ltrimstr("refs/heads/") | select(. > "${{ github.ref_name }}")'
           if [[ -n '${{ inputs.exclude_branch_prefix }}' ]]
@@ -54,7 +56,7 @@ jobs:
 
           # Calculate PR head branch name (the branch to merge) by substituting 'maintenance' with 'merge'
           head_branch=${{ github.ref_name }}
-          merge_branch=${head_branch/#${{ inputs.branch_prefix }}/${{ inputs.merge_prefix }}}
+          merge_branch=${head_branch/#$branch_prefix/$merge_prefix}
           echo "  Merge branch (will be used as PR head): $merge_branch"
 
           echo ""
