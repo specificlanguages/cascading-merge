@@ -41,7 +41,7 @@ jobs:
             jq_expr+=' | select(startswith("${{ inputs.exclude_branch_prefix }}") | not)'
           fi
           jq_expr='['$jq_expr'] | min'
-          
+
           echo "Calculating PR branches:"
 
           # Next branch matching refs/heads/${{ inputs.branch_prefix}}, or empty if we're on the last one
@@ -74,7 +74,7 @@ jobs:
             gh api repos/$owner_and_repo/git/refs --silent --method=POST -f ref="refs/heads/$merge_branch" -f sha=${{ github.sha }} ||
               (echo "Could not create merge branch $merge_branch" ; exit 1)
           fi
-          
+
           # Merge $base_branch -> $merge_branch, in order for $merge_branch to be up to date, as required by the branch
           # protection rules.
 
@@ -83,10 +83,21 @@ jobs:
             echo "Updating $merge_branch from $base_branch failed, please do it manually."
 
           # Create PR if it does not exist yet
-          existing_pr_url=$(gh pr list --repo $owner_and_repo --head $merge_branch --base $base_branch --json url --jq 'map(.url[]).[]')
-          if [[ $existing_pr_url ]]
+          read -r pr_number pr_url < <(gh pr list --repo $owner_and_repo --head $merge_branch --base $base_branch \
+            --json number,url --jq 'map(.number, .url) | join(" ")')
+
+          if [[ $pr_number ]]
           then
-            echo "Pull request $merge_branch -> $base_branch already exists at $existing_pr_url"
+            echo "Found existing PR #$pr_number for $merge_branch -> $base_branch ($pr_url)"
+
+            echo "Requesting review on PR #$pr_number from ${{ github.actor }}"
+            gh api repos/$owner_and_repo/pulls/$pr_number/requested_reviewers \
+              --silent --method=POST -f 'reviewers[]=${{ github.actor }}'
+
+            echo "Assigning PR #$pr_number to ${{ github.actor }}"
+            gh api repos/$owner_and_repo/issues/$pr_number/assignees \
+              --silent --method=POST -f 'assignees[]=${{ github.actor }}'
+
           else
             echo "Creating a new pull request $merge_branch -> $base_branch"
             gh pr create --repo $owner_and_repo --head $merge_branch --base $base_branch \
