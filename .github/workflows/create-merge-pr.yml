@@ -27,7 +27,8 @@ jobs:
   create-pr:
     runs-on: ubuntu-latest
     steps:
-      - shell: bash
+      - name: Create PR for new changes in ${{ github.ref_name }}
+        shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
           owner_and_repo: ${{ github.repository }}
@@ -43,7 +44,7 @@ jobs:
 
           # Next branch matching refs/heads/${{ inputs.branch_prefix}}, or empty if we're on the last one
           next_maintenance_branch=$(gh api "/repos/$owner_and_repo/git/matching-refs/heads/${{ inputs.branch_prefix }}" \
-            --jq "$jq_expr"
+            --jq "$jq_expr")
           echo "  Next maintenance branch: ${next_maintenance_branch:-(none)}"
 
           # Substitute the default branch if empty
