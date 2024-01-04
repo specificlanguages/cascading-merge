@@ -1,7 +1,6 @@
 # Overview
 
-This repository provides a reusable GitHub Actions [workflow](.github/workflows/create-merge-pr.yml) for automating
-cascading merges of MPS projects.
+A reusable GitHub Actions [workflow](.github/workflows/workflow.yml) for automating cascading merges of MPS projects.
 
 The workflow is expected to be called on a push event to a branch specific for a certain MPS version. It will create
 a PR to merge the current maintenance branch into the next maintenance branch (in alphabetic order), or the default
@@ -16,7 +15,7 @@ branch.
 
 # Parameters
 
-See the [workflow file](.github/workflows/create-merge-pr.yml) for a list of parameters.
+See the [workflow file](.github/workflows/workflow.yml) for a list of parameters.
 
 # Example usage
 
@@ -30,7 +29,7 @@ on:
 
 jobs:
   create-pr:
-    uses: specificlanguages/mps-automerge/.github/workflows/create-merge-pr.yml@v1
+    uses: specificlanguages/cascading-merge/.github/workflows/workflow.yml@v1
     with:
       branch_prefix: maintenance/MPS-
       exclude_branch_prefix: maintenance/MPS-3
