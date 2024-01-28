@@ -34,6 +34,7 @@ jobs:
       branch_prefix: maintenance/MPS-
       exclude_branch_prefix: maintenance/MPS-3
       merge_prefix: merge/MPS-
+      update_from_base: false
 ```
 
 Given the above workflow, when a user pushes to a branch called `maintenance/MPS-2021.3`, a PR will be automatically
