@@ -11,7 +11,7 @@ on:
         type: string
 
       exclude_branch_prefix:
-        description: Prefix of branches to exclude from consideration, comma- and/or space-separated.
+        description: Prefix of branches to exclude from consideration.
         required: false
         type: string
 
