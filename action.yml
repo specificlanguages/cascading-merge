@@ -19,7 +19,7 @@ inputs:
     default: 'merge/mps'
     required: false
 
-  default_branch_prefix:
+  default_merge_prefix:
     description: Prefix to use for merge branch for merging to the default branch.
     default: 'merge/'
     required: false
@@ -57,7 +57,7 @@ runs:
         GH_TOKEN: ${{ inputs.token || github.token }}
         owner_and_repo: ${{ github.repository }}
         branch_prefix: ${{ inputs.branch_prefix }}
-        default_branch_prefix: ${{ inputs.default_branch_prefix }}
+        default_merge_prefix: ${{ inputs.default_merge_prefix }}
         merge_prefix: ${{ inputs.merge_prefix }}
         update_from_base: ${{ inputs.update_from_base }}
         default_branch: ${{ github.event.repository.default_branch }}
@@ -85,7 +85,7 @@ runs:
         
         if [[ "$base_branch" == "$default_branch" ]]
         then
-          merge_branch="$default_branch_prefix$default_branch"
+          merge_branch="$default_merge_prefix$default_branch"
         else
           merge_branch=${base_branch/#$branch_prefix/$merge_prefix}
         fi
