@@ -22,7 +22,7 @@ inputs:
   update_from_base:
     description: >
       Whether to update the merge branch from the base branch, as may be required by branch protection rules.
-    default: 'true'
+    default: 'false'
     required: false
 
 runs:
