@@ -25,10 +25,21 @@ inputs:
     default: 'false'
     required: false
 
+outputs:
+  pr_number:
+    description: "Number of the pull request for the merge created or updated by the action"
+    value: ${{ steps.create-pr.outputs.pr_number }}
+
+  pr_url:
+    description: "URL of the pull request for the merge created or updated by the action"
+    value: ${{ steps.create-pr.outputs.pr_url }}
+
+
 runs:
   using: composite
   steps:
-    - name: Create PR for new changes in ${{ github.ref_name }}
+    - id: create-pr
+      name: Create PR for new changes in ${{ github.ref_name }}
       shell: bash
       env:
         GH_TOKEN: ${{ github.token }}
@@ -118,4 +129,10 @@ runs:
             --body "Merge changes from \`${{ github.ref_name }}\` to \`$base_branch\`." \
             --assignee '${{ github.actor }}' \
             --reviewer '${{ github.actor }}'
+
+          read -r pr_number pr_url < <(gh pr list --repo $owner_and_repo --head $merge_branch --base $base_branch \
+            --json number,url --jq 'map(.number, .url) | join(" ")')
         fi
+
+        echo "pr_number=$pr_number" >> $GITHUB_OUTPUT
+        echo "pr_url=$pr_url" >> $GITHUB_OUTPUT
