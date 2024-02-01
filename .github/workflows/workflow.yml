@@ -73,9 +73,19 @@ jobs:
           # Create or update $merge_branch
           if gh api repos/$owner_and_repo/git/ref/heads/$merge_branch --silent
           then
-            # Branch exists, merge $head_branch into it
-            gh api repos/$owner_and_repo/merges --silent --method=POST -f base=$merge_branch -f head=$head_branch ||
-              (echo "Merging $head_branch to existing $merge_branch failed, aborting." ; exit 1)
+            # Branch exists, merge $head_branch into it:
+
+            # First, try fast-forwarding
+            echo "Updating $merge_branch to SHA ${{ github.sha }}"
+            gh api repos/$owner_and_repo/git/refs/heads/$merge_branch --silent --method=PATCH -f sha=${{ github.sha }} \
+              -F force=false ||
+
+              # If that failed, try merging
+              (echo "Update failed, trying to merge $head_branch into $merge_branch" ;
+                gh api repos/$owner_and_repo/merges --silent --method=POST -f base=$merge_branch -f head=$head_branch) ||
+
+                # If that failed, report an error
+                (echo "Merging $head_branch to existing $merge_branch failed, aborting." ; exit 1)
           else
             # Branch does not exist, create it from $head_branch
             gh api repos/$owner_and_repo/git/refs --silent --method=POST -f ref="refs/heads/$merge_branch" -f sha=${{ github.sha }} ||
