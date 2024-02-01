@@ -30,6 +30,13 @@ inputs:
     default: 'false'
     required: false
 
+  token:
+    description: >
+      GitHub token to use for repository operations. If not specified, the repository token will be used and operations
+      performed by the action will not trigger any workflows. In particular, pull request checks will not run for PRs
+      created or updated by the action.
+    required: false
+
 outputs:
   pr_number:
     description: "Number of the pull request for the merge created or updated by the action"
@@ -47,7 +54,7 @@ runs:
       name: Create PR for new changes in ${{ github.ref_name }}
       shell: bash
       env:
-        GH_TOKEN: ${{ github.token }}
+        GH_TOKEN: ${{ inputs.token || github.token }}
         owner_and_repo: ${{ github.repository }}
         branch_prefix: ${{ inputs.branch_prefix }}
         default_branch_prefix: ${{ inputs.default_branch_prefix }}
