@@ -135,11 +135,11 @@ runs:
 
           echo "Requesting review on PR #$pr_number from $GITHUB_ACTOR"
           gh api repos/$owner_and_repo/pulls/$pr_number/requested_reviewers \
-            --silent --method=POST -f "reviewers[]=$GITHUB_ACTOR"
+            --silent --method=POST -f "reviewers[]=$GITHUB_ACTOR" || true
 
           echo "Assigning PR #$pr_number to $GITHUB_ACTOR"
           gh api repos/$owner_and_repo/issues/$pr_number/assignees \
-            --silent --method=POST -f "assignees[]=$GITHUB_ACTOR"
+            --silent --method=POST -f "assignees[]=$GITHUB_ACTOR" || true
 
         else
           echo "Creating a new pull request $merge_branch -> $base_branch"
