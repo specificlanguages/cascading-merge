@@ -19,6 +19,11 @@ inputs:
     default: 'merge/mps'
     required: false
 
+  default_branch_prefix:
+    description: Prefix to use for merge branch for merging to the default branch.
+    default: 'merge/'
+    required: false
+
   update_from_base:
     description: >
       Whether to update the merge branch from the base branch, as may be required by branch protection rules.
@@ -45,10 +50,12 @@ runs:
         GH_TOKEN: ${{ github.token }}
         owner_and_repo: ${{ github.repository }}
         branch_prefix: ${{ inputs.branch_prefix }}
+        default_branch_prefix: ${{ inputs.default_branch_prefix }}
         merge_prefix: ${{ inputs.merge_prefix }}
         update_from_base: ${{ inputs.update_from_base }}
+        default_branch: ${{ github.event.repository.default_branch }}
       run: |
-        jq_expr='.[] | .ref | ltrimstr("refs/heads/") | select(. > "${{ github.ref_name }}")'
+        jq_expr='.[] | .ref | ltrimstr("refs/heads/") | select(. > "'$GITHUB_REF_NAME'")'
         if [[ -n '${{ inputs.exclude_branch_prefix }}' ]]
         then
           jq_expr+=' | select(startswith("${{ inputs.exclude_branch_prefix }}") | not)'
@@ -63,18 +70,23 @@ runs:
         echo "  Next maintenance branch: ${next_maintenance_branch:-(none)}"
 
         # Substitute the default branch if empty
-        default_branch=${{ github.event.repository.default_branch }}
         base_branch=${next_maintenance_branch:-$default_branch}
         echo "  PR base branch: $base_branch"
 
         # Calculate PR head branch name (the branch to merge) by substituting 'maintenance' with 'merge'
-        head_branch=${{ github.ref_name }}
-        merge_branch=${head_branch/#$branch_prefix/$merge_prefix}
+        head_branch="$GITHUB_REF_NAME"
+        
+        if [[ "$base_branch" == "$default_branch" ]]
+        then
+          merge_branch="$default_branch_prefix$default_branch"
+        else
+          merge_branch=${base_branch/#$branch_prefix/$merge_prefix}
+        fi
         echo "  Merge branch (will be used as PR head): $merge_branch"
 
         echo ""
 
-        echo "Pushing ${{ github.ref_name }} to $merge_branch"
+        echo "Pushing $GITHUB_REF_NAME to $merge_branch"
 
         # Create or update $merge_branch
         if gh api repos/$owner_and_repo/git/ref/heads/$merge_branch --silent
@@ -82,8 +94,8 @@ runs:
           # Branch exists, merge $head_branch into it:
 
           # First, try fast-forwarding
-          echo "Updating $merge_branch to SHA ${{ github.sha }}"
-          gh api repos/$owner_and_repo/git/refs/heads/$merge_branch --silent --method=PATCH -f sha=${{ github.sha }} \
+          echo "Updating $merge_branch to SHA $GITHUB_SHA"
+          gh api repos/$owner_and_repo/git/refs/heads/$merge_branch --silent --method=PATCH -f sha="$GITHUB_SHA" \
             -F force=false ||
 
             # If that failed, try merging
@@ -94,7 +106,7 @@ runs:
               (echo "Merging $head_branch to existing $merge_branch failed, aborting." ; exit 1)
         else
           # Branch does not exist, create it from $head_branch
-          gh api repos/$owner_and_repo/git/refs --silent --method=POST -f ref="refs/heads/$merge_branch" -f sha=${{ github.sha }} ||
+          gh api repos/$owner_and_repo/git/refs --silent --method=POST -f ref="refs/heads/$merge_branch" -f sha="$GITHUB_SHA" ||
             (echo "Could not create merge branch $merge_branch" ; exit 1)
         fi
 
@@ -114,21 +126,21 @@ runs:
         then
           echo "Found existing PR #$pr_number for $merge_branch -> $base_branch ($pr_url)"
 
-          echo "Requesting review on PR #$pr_number from ${{ github.actor }}"
+          echo "Requesting review on PR #$pr_number from $GITHUB_ACTOR"
           gh api repos/$owner_and_repo/pulls/$pr_number/requested_reviewers \
-            --silent --method=POST -f 'reviewers[]=${{ github.actor }}'
+            --silent --method=POST -f "reviewers[]=$GITHUB_ACTOR"
 
-          echo "Assigning PR #$pr_number to ${{ github.actor }}"
+          echo "Assigning PR #$pr_number to $GITHUB_ACTOR"
           gh api repos/$owner_and_repo/issues/$pr_number/assignees \
-            --silent --method=POST -f 'assignees[]=${{ github.actor }}'
+            --silent --method=POST -f "assignees[]=$GITHUB_ACTOR"
 
         else
           echo "Creating a new pull request $merge_branch -> $base_branch"
           gh pr create --repo $owner_and_repo --head $merge_branch --base $base_branch \
-            --title "Merge ${{ github.ref_name }} into $base_branch" \
-            --body "Merge changes from \`${{ github.ref_name }}\` to \`$base_branch\`." \
-            --assignee '${{ github.actor }}' \
-            --reviewer '${{ github.actor }}'
+            --title "Merge $GITHUB_REF_NAME into $base_branch" \
+            --body "Merge changes from \`$GITHUB_REF_NAME\` to \`$base_branch\`." \
+            --assignee "$GITHUB_ACTOR" \
+            --reviewer "$GITHUB_ACTOR"
 
           read -r pr_number pr_url < <(gh pr list --repo $owner_and_repo --head $merge_branch --base $base_branch \
             --json number,url --jq 'map(.number, .url) | join(" ")')
