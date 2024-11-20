@@ -39,6 +39,7 @@ jobs:
           merge_prefix: merge/MPS-
           default_merge_prefix: merge/
           update_from_base: true
+          automerge_new_prs: true
           token: ${{ secrets.MY_TOKEN }}
 ```
 
@@ -66,6 +67,11 @@ The action succeeds if the PR was created and could be updated from the original
 # Outputs
 
 The action outputs the PR number (`pr_number`) and PR URL (`pr_url`).
+
+# Automerge
+
+If `automerge_new_prs` is set to `true`, the action will enable automerge if it creates a new PR. The PR will be merged
+with `merge` strategy since this is the only appropriate strategy for cascading merges.
 
 # Custom GitHub token
 

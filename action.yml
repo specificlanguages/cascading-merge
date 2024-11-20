@@ -30,6 +30,12 @@ inputs:
     default: 'false'
     required: false
 
+  automerge_new_prs:
+    description: >
+      Whether to enable automerge for newly created PRs. PRs are merged using 'merge' strategy.
+    default: 'false'
+    required: false
+
   token:
     description: >
       GitHub token to use for repository operations. If not specified, the repository token will be used and operations
@@ -60,6 +66,7 @@ runs:
         default_merge_prefix: ${{ inputs.default_merge_prefix }}
         merge_prefix: ${{ inputs.merge_prefix }}
         update_from_base: ${{ inputs.update_from_base }}
+        automerge_new_prs: ${{ inputs.automerge_new_prs }}
         default_branch: ${{ github.event.repository.default_branch }}
       run: |
         jq_expr='.[] | .ref | ltrimstr("refs/heads/") | select(. > "'$GITHUB_REF_NAME'")'
@@ -151,6 +158,12 @@ runs:
 
           read -r pr_number pr_url < <(gh pr list --repo $owner_and_repo --head $merge_branch --base $base_branch \
             --json number,url --jq 'map(.number, .url) | join(" ")')
+
+          if [[ "$automerge_new_prs" == "true" ]]
+          then
+            echo "Automerging newly created PR #$pr_number"
+            gh pr merge --repo $owner_and_repo --merge --auto $pr_number || echo "Automerge failed"
+          fi
         fi
 
         echo "pr_number=$pr_number" >> "$GITHUB_OUTPUT"
