@@ -71,7 +71,8 @@ The action outputs the PR number (`pr_number`) and PR URL (`pr_url`).
 
 If `token` is provided, it is used for repository operations. Otherwise, the repository token (`github.token`) is used.
 Any actions or API requests performed with the repository token do not trigger workflows, so, for example, PRs created
-by this action will not have PR checks triggered for them.
+by this action using the default token will not have PR checks triggered for them.
 
 Therefore, if you rely on GitHub Workflows for your PR checks, be sure to provide a custom token. A fine-grained token
-can be used, the required permissions are read/write access to code (repository content) and pull requests.
+can be used, the required permissions are read/write access to code (repository content) and read/write access to pull
+requests.
