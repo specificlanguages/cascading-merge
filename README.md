@@ -25,7 +25,7 @@ name: PR to merge into the next version
 on:
   push:
     branches:
-      - 'maintenance/mps*'
+      - 'maintenance/MPS-*'
 
 jobs:
   create-pr:
