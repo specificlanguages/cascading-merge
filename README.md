@@ -8,7 +8,7 @@ default branch if there is no next maintenance branch.
 
 If a pull request for the current branch exists already, the action will succeed without creating a new branch.
 
-The user that pushed the changes is added as an assignee and a reviewer to the PR.
+The user that pushed the changes is added as an assignee and a reviewer to the PR, if possible.
 
 The action creates a "merge" branch from the original branch where any merge conflicts can be fixed, or further
 adjustments, such as migrations, can be performed before the branch is merged.
@@ -47,7 +47,7 @@ Given the above workflow, when a user pushes to a branch called `maintenance/MPS
 created to merge `maintenance/MPS-2021.3` into `maintenance/MPS-2022.2`, if the latter exists.
 
 In order to create the PR, a branch called `merge/MPS-2022.2` will be created at first (i.e. the name is based on the
-destination branch of the PR). The branch starts at `maintenance/MPS-2021.3`. If the branch already exists, it will be
+target/base branch of the PR). The branch starts at `maintenance/MPS-2021.3`. If the branch already exists, it will be
 updated with the latest state of `maintenance/MPS-2021.3` (fast-forwarded if possible, merged otherwise).
 
 If it is not possible to update the merge branch to contain all the new changes, the action will fail.

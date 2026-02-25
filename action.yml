@@ -139,22 +139,11 @@ runs:
         if [[ $pr_number ]]
         then
           echo "Found existing PR #$pr_number for $merge_branch -> $base_branch ($pr_url)"
-
-          echo "Requesting review on PR #$pr_number from $GITHUB_ACTOR"
-          gh api repos/$owner_and_repo/pulls/$pr_number/requested_reviewers \
-            --silent --method=POST -f "reviewers[]=$GITHUB_ACTOR" || true
-
-          echo "Assigning PR #$pr_number to $GITHUB_ACTOR"
-          gh api repos/$owner_and_repo/issues/$pr_number/assignees \
-            --silent --method=POST -f "assignees[]=$GITHUB_ACTOR" || true
-
         else
           echo "Creating a new pull request $merge_branch -> $base_branch"
           gh pr create --repo $owner_and_repo --head $merge_branch --base $base_branch \
             --title "Merge $GITHUB_REF_NAME into $base_branch" \
-            --body "Merge changes from \`$GITHUB_REF_NAME\` to \`$base_branch\`." \
-            --assignee "$GITHUB_ACTOR" \
-            --reviewer "$GITHUB_ACTOR"
+            --body "Merge changes from \`$GITHUB_REF_NAME\` to \`$base_branch\`."
 
           read -r pr_number pr_url < <(gh pr list --repo $owner_and_repo --head $merge_branch --base $base_branch \
             --json number,url --jq 'map(.number, .url) | join(" ")')
@@ -165,6 +154,14 @@ runs:
             gh pr merge --repo $owner_and_repo --merge --auto $pr_number || echo "Automerge failed"
           fi
         fi
+
+        echo "Requesting review on PR #$pr_number from $GITHUB_ACTOR"
+        gh api repos/$owner_and_repo/pulls/$pr_number/requested_reviewers \
+          --silent --method=POST -f "reviewers[]=$GITHUB_ACTOR" || echo "Could not add $GITHUB_ACTOR as a reviewer"
+
+        echo "Assigning PR #$pr_number to $GITHUB_ACTOR"
+        gh api repos/$owner_and_repo/issues/$pr_number/assignees \
+          --silent --method=POST -f "assignees[]=$GITHUB_ACTOR" || echo "Could not add $GITHUB_ACTOR as an assignee"
 
         echo "pr_number=$pr_number" >> "$GITHUB_OUTPUT"
         echo "pr_url=$pr_url" >> "$GITHUB_OUTPUT"
