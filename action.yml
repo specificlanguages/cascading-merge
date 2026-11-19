@@ -36,6 +36,41 @@ inputs:
     default: 'false'
     required: false
 
+  pr_title:
+    description: >
+      Title for newly created PRs; existing PRs are not changed. Placeholders `{head}` and `{base}` are replaced
+      with the branch being merged and the PR base branch. Empty means the default.
+    default: 'Merge {head} into {base}'
+    required: false
+
+  pr_body:
+    description: >
+      Body for newly created PRs; existing PRs are not changed. Placeholders `{head}` and `{base}` are supported.
+      Empty means the default.
+    default: 'Merge changes from `{head}` to `{base}`.'
+    required: false
+
+  merge_commit_message:
+    description: >
+      Commit message for merge commits created when merging `{head}` into an existing merge branch that cannot be
+      fast-forwarded. Placeholders `{head}` and `{base}` are supported. Empty means the GitHub default message.
+    default: ''
+    required: false
+
+  update_from_base_message:
+    description: >
+      Commit message for the reverse merge of `{base}` into the merge branch (see `update_from_base`). Placeholders
+      `{head}` and `{base}` are supported. Empty means the GitHub default message.
+    default: ''
+    required: false
+
+  labels:
+    description: >
+      Comma-separated labels to add to the PR on every run, including existing PRs. Whitespace around names is
+      ignored. Failing to add labels does not fail the action.
+    default: ''
+    required: false
+
   token:
     description: >
       GitHub token to use for repository operations. If not specified, the repository token will be used and operations
@@ -68,6 +103,11 @@ runs:
         update_from_base: ${{ inputs.update_from_base }}
         automerge_new_prs: ${{ inputs.automerge_new_prs }}
         default_branch: ${{ github.event.repository.default_branch }}
+        pr_title_tpl: ${{ inputs.pr_title }}
+        pr_body_tpl: ${{ inputs.pr_body }}
+        merge_msg_tpl: ${{ inputs.merge_commit_message }}
+        update_msg_tpl: ${{ inputs.update_from_base_message }}
+        labels: ${{ inputs.labels }}
       run: |
         jq_expr='.[] | .ref | ltrimstr("refs/heads/") | select(. > "'$GITHUB_REF_NAME'")'
         if [[ -n '${{ inputs.exclude_branch_prefix }}' ]]
@@ -98,6 +138,29 @@ runs:
         fi
         echo "  Merge branch (will be used as PR head): $merge_branch"
 
+        # Replace {head} and {base} placeholders. Replacements are quoted so that '&' in branch names is taken
+        # literally (bash 5.2+ patsub_replacement).
+        render() {
+          local s="$1"
+          s=${s//\{head\}/"$GITHUB_REF_NAME"}
+          s=${s//\{base\}/"$base_branch"}
+          printf '%s' "$s"
+        }
+
+        # An explicitly empty input (e.g. an unset variable) would produce an invalid PR
+        [[ -n "$pr_title_tpl" ]] || pr_title_tpl='Merge {head} into {base}'
+        [[ -n "$pr_body_tpl" ]] || pr_body_tpl='Merge changes from `{head}` to `{base}`.'
+
+        pr_title=$(render "$pr_title_tpl")
+        pr_body=$(render "$pr_body_tpl")
+        merge_msg=$(render "$merge_msg_tpl")
+        update_msg=$(render "$update_msg_tpl")
+
+        merge_msg_args=()
+        [[ -n "$merge_msg" ]] && merge_msg_args=(-f commit_message="$merge_msg")
+        update_msg_args=()
+        [[ -n "$update_msg" ]] && update_msg_args=(-f commit_message="$update_msg")
+
         echo ""
 
         echo "Pushing $GITHUB_REF_NAME to $merge_branch"
@@ -114,7 +177,8 @@ runs:
 
             # If that failed, try merging
             (echo "Update failed, trying to merge $head_branch into $merge_branch" ;
-              gh api repos/$owner_and_repo/merges --silent --method=POST -f base=$merge_branch -f head=$head_branch) ||
+              gh api repos/$owner_and_repo/merges --silent --method=POST -f base=$merge_branch -f head=$head_branch \
+                "${merge_msg_args[@]}") ||
 
               # If that failed, report an error
               (echo "Merging $head_branch to existing $merge_branch failed, aborting." ; exit 1)
@@ -128,7 +192,8 @@ runs:
         if [[ "$update_from_base" == true ]]
         then
           # The head and base arguments are intentionally reversed because this is a reverse merge.
-          gh api repos/$owner_and_repo/merges --silent --method=POST -f base=$merge_branch -f head=$base_branch ||
+          gh api repos/$owner_and_repo/merges --silent --method=POST -f base=$merge_branch -f head=$base_branch \
+            "${update_msg_args[@]}" ||
             echo "Updating $merge_branch from $base_branch failed, please do it manually."
         fi
 
@@ -142,8 +207,8 @@ runs:
         else
           echo "Creating a new pull request $merge_branch -> $base_branch"
           gh pr create --repo $owner_and_repo --head $merge_branch --base $base_branch \
-            --title "Merge $GITHUB_REF_NAME into $base_branch" \
-            --body "Merge changes from \`$GITHUB_REF_NAME\` to \`$base_branch\`."
+            --title "$pr_title" \
+            --body "$pr_body"
 
           read -r pr_number pr_url < <(gh pr list --repo $owner_and_repo --head $merge_branch --base $base_branch \
             --json number,url --jq 'map(.number, .url) | join(" ")')
@@ -153,6 +218,26 @@ runs:
             echo "Automerging newly created PR #$pr_number"
             gh pr merge --repo $owner_and_repo --merge --auto $pr_number || echo "Automerge failed"
           fi
+        fi
+
+        # Add labels on every run, so that existing PRs and earlier failed attempts are covered as well
+        label_args=()
+        IFS=',' read -ra label_list <<< "$labels"
+        for label in "${label_list[@]}"
+        do
+          label=${label#"${label%%[![:space:]]*}"}
+          label=${label%"${label##*[![:space:]]}"}
+          if [[ -n "$label" ]]
+          then
+            label_args+=(-f "labels[]=$label")
+          fi
+        done
+
+        if (( ${#label_args[@]} ))
+        then
+          echo "Adding labels '$labels' to PR #$pr_number"
+          gh api repos/$owner_and_repo/issues/$pr_number/labels \
+            --silent --method=POST "${label_args[@]}" || echo "Could not add labels '$labels'"
         fi
 
         echo "Requesting review on PR #$pr_number from $GITHUB_ACTOR"
