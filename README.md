@@ -62,7 +62,7 @@ The user that triggered the action (`github.actor`) will be added as both the as
 request. This is going to be the user that pushed the original change or performed the preceding cascading merge.
 
 The action succeeds if the PR was created and could be updated from the original branch, even if some intermediate steps
-(such as updating the branch from base or adding the reviewer) fail.
+(such as updating the branch from base, adding labels or adding the reviewer) fail.
 
 # Outputs
 
@@ -72,6 +72,19 @@ The action outputs the PR number (`pr_number`) and PR URL (`pr_url`).
 
 If `automerge_new_prs` is set to `true`, the action will enable automerge if it creates a new PR. The PR will be merged
 with `merge` strategy since this is the only appropriate strategy for cascading merges.
+
+# Custom messages and labels
+
+PR title, body, labels and the merge commit messages on the merge branch can be customized, e.g. for
+[Conventional Commits](https://www.conventionalcommits.org/). `{head}` and `{base}` are replaced with the source and
+target branch. Title and body only apply to newly created PRs, labels are added on every run. See
+[action.yml](action.yml) for details and defaults.
+
+```yaml
+          pr_title: 'chore(cascade): merge {head} into {base}'
+          merge_commit_message: 'chore(cascade): merge {head} into {base}'
+          labels: cascade
+```
 
 # Custom GitHub token
 
