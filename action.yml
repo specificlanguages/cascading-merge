@@ -101,10 +101,13 @@ runs:
         merge_msg_tpl: ${{ inputs.merge_commit_message }}
         update_msg_tpl: ${{ inputs.update_from_base_message }}
       run: |
-        jq_expr='.[] | .ref | ltrimstr("refs/heads/") | select(. > "'"$GITHUB_REF_NAME"'")'
+        # Branch names are read from the environment so that quotes and backslashes in them are taken literally
+        # shellcheck disable=SC2016
+        jq_expr='.[] | .ref | ltrimstr("refs/heads/") | select(. > $ENV.GITHUB_REF_NAME)'
         if [[ -n "$exclude_branch_prefix" ]]
         then
-          jq_expr+=' | select(startswith("'"$exclude_branch_prefix"'") | not)'
+          # shellcheck disable=SC2016
+          jq_expr+=' | select(startswith($ENV.exclude_branch_prefix) | not)'
         fi
         jq_expr="[$jq_expr] | min"
 
@@ -126,7 +129,8 @@ runs:
         then
           merge_branch="$default_merge_prefix$default_branch"
         else
-          merge_branch=${next_branch/#$branch_prefix/$merge_prefix}
+          # Quoted so that glob characters in the prefixes and '&' in the replacement are taken literally
+          merge_branch=${next_branch/#"$branch_prefix"/"$merge_prefix"}
         fi
         echo "  Merge branch (PR head branch): $merge_branch"
 
@@ -198,12 +202,11 @@ runs:
           echo "Found existing PR #$pr_number for $merge_branch -> $next_branch ($pr_url)"
         else
           echo "Creating a new pull request $merge_branch -> $next_branch"
-          gh pr create --head "$merge_branch" --base "$next_branch" \
+          # gh pr create prints the URL of the new PR, which ends with its number
+          pr_url=$(gh pr create --head "$merge_branch" --base "$next_branch" \
             --title "$pr_title" \
-            --body "$pr_body"
-
-          read -r pr_number pr_url < <(gh pr list --head "$merge_branch" --base "$next_branch" \
-            --json number,url --jq 'map(.number, .url) | join(" ")')
+            --body "$pr_body")
+          pr_number=${pr_url##*/}
 
           if [[ "$automerge_new_prs" == "true" ]]
           then
