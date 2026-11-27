@@ -1,4 +1,6 @@
-# Overview
+# Cascading Merge
+
+## Overview
 
 Automates cascading merges of MPS projects.
 
@@ -13,11 +15,11 @@ The user that pushed the changes is added as an assignee and a reviewer to the P
 The action creates a "merge" branch from the original branch where any merge conflicts can be fixed, or further
 adjustments, such as migrations, can be performed before the branch is merged.
 
-# Parameters
+## Parameters
 
 See the [action description file](action.yml) for a list of parameters.
 
-# Example usage
+## Example usage
 
 ```yaml
 name: PR to merge into the next version
@@ -25,7 +27,7 @@ name: PR to merge into the next version
 on:
   push:
     branches:
-      - 'maintenance/MPS-*'
+      - "maintenance/MPS-*"
 
 jobs:
   create-pr:
@@ -64,16 +66,16 @@ request. This is going to be the user that pushed the original change or perform
 The action succeeds if the PR was created and could be updated from the original branch, even if some intermediate steps
 (such as updating the branch from base or adding the reviewer) fail.
 
-# Outputs
+## Outputs
 
 The action outputs the PR number (`pr_number`) and PR URL (`pr_url`).
 
-# Automerge
+## Automerge
 
 If `automerge_new_prs` is set to `true`, the action will enable automerge if it creates a new PR. The PR will be merged
 with `merge` strategy since this is the only appropriate strategy for cascading merges.
 
-# Custom GitHub token
+## Custom GitHub token
 
 If `token` is provided, it is used for repository operations. Otherwise, the repository token (`github.token`) is used.
 Any actions or API requests performed with the repository token do not trigger workflows, so, for example, PRs created

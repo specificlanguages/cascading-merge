@@ -1,0 +1,39 @@
+default_install_hook_types:
+  - pre-commit
+
+repos:
+  - repo: local
+    hooks:
+      - id: prettier
+        name: Format Markdown and YAML with Prettier
+        entry: prettier --write
+        language: node
+        additional_dependencies:
+          - prettier@3.9.7
+        types_or:
+          - markdown
+          - yaml
+
+      - id: markdownlint-cli2
+        name: Lint Markdown with markdownlint-cli2
+        entry: markdownlint-cli2
+        language: node
+        additional_dependencies:
+          - markdownlint-cli2@0.23.2
+        types:
+          - markdown
+
+      # A change to the markdownlint configuration or hook versions can affect every Markdown file.
+      - id: markdownlint-cli2-all
+        name: Lint all Markdown with markdownlint-cli2
+        entry: markdownlint-cli2 "**/*.md"
+        language: node
+        additional_dependencies:
+          - markdownlint-cli2@0.23.2
+        files: ^(\.markdownlint-cli2\.yaml|\.pre-commit-config\.yaml)$
+        pass_filenames: false
+
+  - repo: https://github.com/jdx/jactionlint
+    rev: v2.6.0
+    hooks:
+      - id: jactionlint-shellcheck
