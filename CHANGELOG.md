@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- New optional inputs `pr_title`, `pr_body`, `merge_commit_message` and `update_from_base_message` to customize the
+  created PRs and the merge commits on the merge branch. Defaults keep the previous behavior.
+
 ## 2.0.1
 
 ### Fixed

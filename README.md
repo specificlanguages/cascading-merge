@@ -75,6 +75,23 @@ The action outputs the PR number (`pr_number`) and PR URL (`pr_url`).
 If `automerge_new_prs` is set to `true`, the action will enable automerge if it creates a new PR. The PR will be merged
 with `merge` strategy since this is the only appropriate strategy for cascading merges.
 
+## Custom messages
+
+PR title, body and the merge commit messages on the merge branch can be customized, e.g. for
+[Conventional Commits](https://www.conventionalcommits.org/). The following placeholders are replaced with branch names:
+
+- `{current_branch}`: the pushed branch,
+- `{next_branch}`: the next maintenance branch or the default branch (the PR base),
+- `{merge_branch}`: the merge branch (the PR head).
+
+Title and body only apply to newly created PRs. See [action.yml](action.yml) for details and defaults.
+
+```yaml
+pr_title: "chore(cascade): merge {current_branch} into {next_branch}"
+merge_commit_message: "chore(cascade): merge {current_branch} into {merge_branch}"
+update_from_base_message: "chore(cascade): merge {next_branch} into {merge_branch}"
+```
+
 ## Custom GitHub token
 
 If `token` is provided, it is used for repository operations. Otherwise, the repository token (`github.token`) is used.
