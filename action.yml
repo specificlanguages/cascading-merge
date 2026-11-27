@@ -117,7 +117,7 @@ runs:
 
         # Substitute the default branch if empty
         next_branch=${next_maintenance_branch:-$default_branch}
-        echo "  PR base branch: $next_branch"
+        echo "  Next branch (PR base branch): $next_branch"
 
         current_branch="$GITHUB_REF_NAME"
 
@@ -128,7 +128,7 @@ runs:
         else
           merge_branch=${next_branch/#$branch_prefix/$merge_prefix}
         fi
-        echo "  Merge branch (will be used as PR head): $merge_branch"
+        echo "  Merge branch (PR head branch): $merge_branch"
 
         # Replace branch placeholders. Replacements are quoted so that '&' in branch names is taken literally
         # (bash 5.2+ patsub_replacement).
