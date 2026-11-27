@@ -116,17 +116,17 @@ runs:
         echo "  Next maintenance branch: ${next_maintenance_branch:-(none)}"
 
         # Substitute the default branch if empty
-        base_branch=${next_maintenance_branch:-$default_branch}
-        echo "  PR base branch: $base_branch"
+        next_branch=${next_maintenance_branch:-$default_branch}
+        echo "  PR base branch: $next_branch"
 
         current_branch="$GITHUB_REF_NAME"
 
         # Calculate PR head branch name by substituting the branch prefix with the merge prefix
-        if [[ "$base_branch" == "$default_branch" ]]
+        if [[ "$next_branch" == "$default_branch" ]]
         then
           merge_branch="$default_merge_prefix$default_branch"
         else
-          merge_branch=${base_branch/#$branch_prefix/$merge_prefix}
+          merge_branch=${next_branch/#$branch_prefix/$merge_prefix}
         fi
         echo "  Merge branch (will be used as PR head): $merge_branch"
 
@@ -135,7 +135,7 @@ runs:
         render() {
           local s="$1"
           s=${s//\{current_branch\}/"$current_branch"}
-          s=${s//\{next_branch\}/"$base_branch"}
+          s=${s//\{next_branch\}/"$next_branch"}
           s=${s//\{merge_branch\}/"$merge_branch"}
           printf '%s' "$s"
         }
@@ -181,28 +181,28 @@ runs:
             (echo "Could not create merge branch $merge_branch" ; exit 1)
         fi
 
-        # Update $merge_branch from $base_branch, if requested
+        # Update $merge_branch from $next_branch, if requested
         if [[ "$update_from_base" == true ]]
         then
           # The head and base arguments are intentionally reversed because this is a reverse merge.
-          merge "$merge_branch" "$base_branch" "$update_msg" ||
-            echo "Updating $merge_branch from $base_branch failed, please do it manually."
+          merge "$merge_branch" "$next_branch" "$update_msg" ||
+            echo "Updating $merge_branch from $next_branch failed, please do it manually."
         fi
 
         # Create PR if it does not exist yet
-        read -r pr_number pr_url < <(gh pr list --head "$merge_branch" --base "$base_branch" \
+        read -r pr_number pr_url < <(gh pr list --head "$merge_branch" --base "$next_branch" \
           --json number,url --jq 'map(.number, .url) | join(" ")')
 
         if [[ $pr_number ]]
         then
-          echo "Found existing PR #$pr_number for $merge_branch -> $base_branch ($pr_url)"
+          echo "Found existing PR #$pr_number for $merge_branch -> $next_branch ($pr_url)"
         else
-          echo "Creating a new pull request $merge_branch -> $base_branch"
-          gh pr create --head "$merge_branch" --base "$base_branch" \
+          echo "Creating a new pull request $merge_branch -> $next_branch"
+          gh pr create --head "$merge_branch" --base "$next_branch" \
             --title "$pr_title" \
             --body "$pr_body"
 
-          read -r pr_number pr_url < <(gh pr list --head "$merge_branch" --base "$base_branch" \
+          read -r pr_number pr_url < <(gh pr list --head "$merge_branch" --base "$next_branch" \
             --json number,url --jq 'map(.number, .url) | join(" ")')
 
           if [[ "$automerge_new_prs" == "true" ]]
