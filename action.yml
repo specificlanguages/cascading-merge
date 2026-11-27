@@ -88,7 +88,7 @@ runs:
       shell: bash
       env:
         GH_TOKEN: ${{ inputs.token || github.token }}
-        owner_and_repo: ${{ github.repository }}
+        GH_REPO: ${{ github.repository }}
         branch_prefix: ${{ inputs.branch_prefix }}
         exclude_branch_prefix: ${{ inputs.exclude_branch_prefix }}
         default_merge_prefix: ${{ inputs.default_merge_prefix }}
@@ -111,7 +111,7 @@ runs:
         echo "Calculating PR branches:"
 
         # Next branch matching refs/heads/$branch_prefix, or empty if we're on the last one
-        next_maintenance_branch=$(gh api "/repos/$owner_and_repo/git/matching-refs/heads/$branch_prefix" \
+        next_maintenance_branch=$(gh api "/repos/{owner}/{repo}/git/matching-refs/heads/$branch_prefix" \
           --jq "$jq_expr")
         echo "  Next maintenance branch: ${next_maintenance_branch:-(none)}"
 
@@ -119,9 +119,9 @@ runs:
         base_branch=${next_maintenance_branch:-$default_branch}
         echo "  PR base branch: $base_branch"
 
-        # Calculate PR head branch name (the branch to merge) by substituting 'maintenance' with 'merge'
-        head_branch="$GITHUB_REF_NAME"
+        current_branch="$GITHUB_REF_NAME"
 
+        # Calculate PR head branch name by substituting the branch prefix with the merge prefix
         if [[ "$base_branch" == "$default_branch" ]]
         then
           merge_branch="$default_merge_prefix$default_branch"
@@ -134,7 +134,7 @@ runs:
         # (bash 5.2+ patsub_replacement).
         render() {
           local s="$1"
-          s=${s//\{current_branch\}/"$GITHUB_REF_NAME"}
+          s=${s//\{current_branch\}/"$current_branch"}
           s=${s//\{next_branch\}/"$base_branch"}
           s=${s//\{merge_branch\}/"$merge_branch"}
           printf '%s' "$s"
@@ -152,36 +152,36 @@ runs:
           then
             args+=(-f commit_message="$3")
           fi
-          gh api "repos/$owner_and_repo/merges" --silent --method=POST "${args[@]}"
+          gh api "repos/{owner}/{repo}/merges" --silent --method=POST "${args[@]}"
         }
 
         echo ""
 
-        echo "Pushing $GITHUB_REF_NAME to $merge_branch"
+        echo "Pushing $current_branch to $merge_branch"
 
         # Create or update $merge_branch
-        if gh api "repos/$owner_and_repo/git/ref/heads/$merge_branch" --silent
+        if gh api "repos/{owner}/{repo}/git/ref/heads/$merge_branch" --silent
         then
-          # Branch exists, merge $head_branch into it:
+          # Branch exists, merge $current_branch into it:
 
           # First, try fast-forwarding
           echo "Updating $merge_branch to SHA $GITHUB_SHA"
-          gh api "repos/$owner_and_repo/git/refs/heads/$merge_branch" --silent --method=PATCH -f sha="$GITHUB_SHA" \
+          gh api "repos/{owner}/{repo}/git/refs/heads/$merge_branch" --silent --method=PATCH -f sha="$GITHUB_SHA" \
             -F force=false ||
 
             # If that failed, try merging
-            (echo "Update failed, trying to merge $head_branch into $merge_branch" ;
-              merge "$merge_branch" "$head_branch" "$merge_msg") ||
+            (echo "Update failed, trying to merge $current_branch into $merge_branch" ;
+              merge "$merge_branch" "$current_branch" "$merge_msg") ||
 
               # If that failed, report an error
-              (echo "Merging $head_branch to existing $merge_branch failed, aborting." ; exit 1)
+              (echo "Merging $current_branch to existing $merge_branch failed, aborting." ; exit 1)
         else
-          # Branch does not exist, create it from $head_branch
-          gh api "repos/$owner_and_repo/git/refs" --silent --method=POST -f ref="refs/heads/$merge_branch" -f sha="$GITHUB_SHA" ||
+          # Branch does not exist, create it from $current_branch
+          gh api "repos/{owner}/{repo}/git/refs" --silent --method=POST -f ref="refs/heads/$merge_branch" -f sha="$GITHUB_SHA" ||
             (echo "Could not create merge branch $merge_branch" ; exit 1)
         fi
 
-        # Update $base_branch from $base_branch, if requested
+        # Update $merge_branch from $base_branch, if requested
         if [[ "$update_from_base" == true ]]
         then
           # The head and base arguments are intentionally reversed because this is a reverse merge.
@@ -190,7 +190,7 @@ runs:
         fi
 
         # Create PR if it does not exist yet
-        read -r pr_number pr_url < <(gh pr list --repo "$owner_and_repo" --head "$merge_branch" --base "$base_branch" \
+        read -r pr_number pr_url < <(gh pr list --head "$merge_branch" --base "$base_branch" \
           --json number,url --jq 'map(.number, .url) | join(" ")')
 
         if [[ $pr_number ]]
@@ -198,26 +198,26 @@ runs:
           echo "Found existing PR #$pr_number for $merge_branch -> $base_branch ($pr_url)"
         else
           echo "Creating a new pull request $merge_branch -> $base_branch"
-          gh pr create --repo "$owner_and_repo" --head "$merge_branch" --base "$base_branch" \
+          gh pr create --head "$merge_branch" --base "$base_branch" \
             --title "$pr_title" \
             --body "$pr_body"
 
-          read -r pr_number pr_url < <(gh pr list --repo "$owner_and_repo" --head "$merge_branch" --base "$base_branch" \
+          read -r pr_number pr_url < <(gh pr list --head "$merge_branch" --base "$base_branch" \
             --json number,url --jq 'map(.number, .url) | join(" ")')
 
           if [[ "$automerge_new_prs" == "true" ]]
           then
             echo "Automerging newly created PR #$pr_number"
-            gh pr merge --repo "$owner_and_repo" --merge --auto "$pr_number" || echo "Automerge failed"
+            gh pr merge --merge --auto "$pr_number" || echo "Automerge failed"
           fi
         fi
 
         echo "Requesting review on PR #$pr_number from $GITHUB_ACTOR"
-        gh api "repos/$owner_and_repo/pulls/$pr_number/requested_reviewers" \
+        gh api "repos/{owner}/{repo}/pulls/$pr_number/requested_reviewers" \
           --silent --method=POST -f "reviewers[]=$GITHUB_ACTOR" || echo "Could not add $GITHUB_ACTOR as a reviewer"
 
         echo "Assigning PR #$pr_number to $GITHUB_ACTOR"
-        gh api "repos/$owner_and_repo/issues/$pr_number/assignees" \
+        gh api "repos/{owner}/{repo}/issues/$pr_number/assignees" \
           --silent --method=POST -f "assignees[]=$GITHUB_ACTOR" || echo "Could not add $GITHUB_ACTOR as an assignee"
 
         echo "pr_number=$pr_number" >> "$GITHUB_OUTPUT"
